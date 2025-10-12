@@ -44,16 +44,19 @@ int main() {
     nodelay(stdscr, TRUE); // getch non bloquant
     keypad(stdscr, TRUE);
 
-    // Choix nouvelle partie ou reprendre
-    mvprintw(0,0,"=== JEU DU SERPENT ===");
+     // Choix nouvelle partie ou reprendre
+    mvprintw(0,0,"=== JEU DU SERPENT ==="); 
     mvprintw(1,0,"1 - Nouvelle partie");
     mvprintw(2,0,"2 - Reprendre la partie sauvegardee");
     mvprintw(3,0,"Votre choix : ");
     refresh();
+    //  Affiche le menu 1 et 2
 
+    //Getch = clavier jusqu"a 1 ou 2 soit choisi
     int choix = getch();
     while (choix != '1' && choix != '2') choix = getch();
 
+    //load game permets de reprendre une partie sauvegarder
     if (choix == '2') {
         if (!loadGame()) {
             mvprintw(5,0,"Aucune sauvegarde trouvee. Nouvelle partie demarree.");
@@ -64,6 +67,7 @@ int main() {
     } else {
         initMap();
     }
+
 
    
 
