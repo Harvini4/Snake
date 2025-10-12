@@ -1,0 +1,228 @@
+/* Snake Game using C++ 
+   Developed by TheKittyKat, improved
+*/
+
+#include <iostream>
+#include <conio.h>
+#include <windows.h> // pour Sleep
+#include <fstream>
+#include <ctime>
+#include <cstdlib>
+
+using namespace std;
+
+// --- Déclarations ---
+void run();
+void printMap();
+void initMap();
+void moveSnake(int dx, int dy);
+void update();
+void changeDirection(char key);
+void generateFood();
+char getMapValue(int value);
+void saveGame();
+bool loadGame();
+
+// --- Dimensions de la carte ---
+const int mapwidth = 20;
+const int mapheight = 20;
+const int size = mapwidth * mapheight;
+
+// --- Variables globales ---
+int map[size];
+int headxpos, headypos;
+int direction;      // 0=haut,1=droite,2=bas,3=gauche
+int food = 4;       // longueur initiale du serpent
+int applesEaten = 0;
+int score = 0;
+bool running;
+int speedMode = 1;  // 1 = lent, 2 = rapide
+
+// --- Programme principal ---
+int main() {
+    srand(time(0));
+
+    cout << "=== JEU DU SERPENT ===" << endl;
+    cout << "1 - Nouvelle partie" << endl;
+    cout << "2 - Reprendre la partie sauvegardee" << endl;
+    cout << "Votre choix : ";
+    int choix;
+    cin >> choix;
+
+    if (choix == 2) {
+        if (!loadGame()) {
+            cout << "Aucune sauvegarde trouvee. Nouvelle partie demarree." << endl;
+            Sleep(2000);
+            initMap();
+        }
+    } else {
+        initMap();
+    }
+
+    cout << "\nChoisissez la vitesse : (1) Lent  (2) Rapide : ";
+    cin >> speedMode;
+
+    run();
+    return 0;
+}
+
+// --- Boucle principale du jeu ---
+void run() {
+    running = true;
+    int delay = (speedMode == 1) ? 400 : 150;
+
+    while (running) {
+        if (kbhit()) {
+            char c = getch();
+            if (c == 'p' || c == 'P') saveGame();
+            else if (c == 'r' || c == 'R') loadGame();
+            else if (c == 'q' || c == 'Q') running = false;
+            else changeDirection(c);
+        }
+
+        update();
+        system("cls");
+        printMap();
+        cout << "\nScore : " << score << endl;
+        cout << "Commandes : W/A/S/D pour bouger | P = Sauvegarder | R = Charger | Q = Quitter" << endl;
+
+        Sleep(delay);
+    }
+
+    cout << "\n=== GAME OVER ===" << endl;
+    cout << "Score final : " << score << endl;
+    system("pause");
+}
+
+// --- Changement de direction ---
+void changeDirection(char key) {
+    switch (key) {
+        case 'w': case 'W': if (direction != 2) direction = 0; break; // haut
+        case 'd': case 'D': if (direction != 3) direction = 1; break; // droite
+        case 's': case 'S': if (direction != 0) direction = 2; break; // bas
+        case 'a': case 'A': if (direction != 1) direction = 3; break; // gauche
+    }
+}
+
+// --- Déplacement du serpent ---
+void moveSnake(int dx, int dy) {
+    int newx = headxpos + dx;
+    int newy = headypos + dy;
+
+    int target = map[newx + newy * mapwidth];
+
+    // Collision avec mur ou corps
+    if (target != 0 && target != -2) {
+        running = false;
+        return;
+    }
+
+    // Si pomme
+    if (target == -2) {
+        applesEaten++;
+        map[newx + newy * mapwidth] = 0;
+        score += 5;
+        if (applesEaten == 3) {
+            food++;
+            applesEaten = 0;
+            generateFood();
+        }
+    }
+
+    headxpos = newx;
+    headypos = newy;
+    map[headxpos + headypos * mapwidth] = food + 1;
+}
+
+// --- Mise à jour du jeu ---
+void update() {
+    switch (direction) {
+        case 0: moveSnake(-1,0); break;
+        case 1: moveSnake(0,1);  break;
+        case 2: moveSnake(1,0);  break;
+        case 3: moveSnake(0,-1); break;
+    }
+
+    // Décrémenter corps
+    for (int i = 0; i < size; i++) {
+        if (map[i] > 0) map[i]--;
+    }
+}
+
+// --- Initialisation de la carte ---
+void initMap() {
+    for (int i = 0; i < size; i++) map[i] = 0;
+
+    headxpos = mapwidth / 2;
+    headypos = mapheight / 2;
+    direction = 1;
+
+    // murs haut et bas
+    for (int x = 0; x < mapwidth; x++) {
+        map[x] = -1;
+        map[x + (mapheight-1)*mapwidth] = -1;
+    }
+
+    // murs gauche et droite
+    for (int y = 0; y < mapheight; y++) {
+        map[0 + y*mapwidth] = -1;
+        map[(mapwidth-1) + y*mapwidth] = -1;
+    }
+
+    generateFood();
+}
+
+// --- Génération de 3 pommes ---
+void generateFood() {
+    int count = 0;
+    while (count < 3) {
+        int x = rand() % (mapwidth-2) + 1;
+        int y = rand() % (mapheight-2) + 1;
+        if (map[x + y*mapwidth] == 0) {
+            map[x + y*mapwidth] = -2;
+            count++;
+        }
+    }
+}
+
+// --- Affichage de la carte ---
+void printMap() {
+    for (int y = 0; y < mapheight; y++) {
+        for (int x = 0; x < mapwidth; x++) {
+            cout << getMapValue(map[x + y*mapwidth]);
+        }
+        cout << endl;
+    }
+}
+
+// --- Caractères d'affichage ---
+char getMapValue(int value) {
+    if (value > 0) return 'o'; // serpent
+    switch(value){
+        case -1: return 'X'; // mur
+        case -2: return 'O'; // pomme
+        default: return ' '; // vide
+    }
+}
+
+// --- Sauvegarde de la partie ---
+void saveGame() {
+    ofstream file("snake_save.txt");
+    if (!file) return;
+    file << headxpos << " " << headypos << " " << direction << " " << food << " "
+         << applesEaten << " " << score << " " << speedMode << endl;
+    for (int i = 0; i < size; i++) file << map[i] << " ";
+    file.close();
+    cout << "\nPartie sauvegardee !" << endl;
+    Sleep(1000);
+}
+
+// --- Chargement de la partie ---
+bool loadGame() {
+    ifstream file("snake_save.txt");
+    if (!file) return false;
+    file >> headxpos >> headypos >> direction >> food >> applesEaten >> score >> speedMode;
+    for (int i = 0; i < size; i++) file >> map[i];
+    file.close();
+    return true;
+}
