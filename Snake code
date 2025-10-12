@@ -1,14 +1,9 @@
-/* Snake Game using C++ 
-   Developed by TheKittyKat, improved
-*/
-
 #include <iostream>
-#include <conio.h>
-#include <windows.h> // pour Sleep
+#include <ncurses.h>
+#include <unistd.h>   // usleep
 #include <fstream>
 #include <ctime>
 #include <cstdlib>
-
 using namespace std;
 
 // --- Déclarations ---
@@ -17,7 +12,7 @@ void printMap();
 void initMap();
 void moveSnake(int dx, int dy);
 void update();
-void changeDirection(char key);
+void changeDirection(int key);
 void generateFood();
 char getMapValue(int value);
 void saveGame();
@@ -31,87 +26,109 @@ const int size = mapwidth * mapheight;
 // --- Variables globales ---
 int map[size];
 int headxpos, headypos;
-int direction;      // 0=haut,1=droite,2=bas,3=gauche
-int food = 4;       // longueur initiale du serpent
-int applesEaten = 0;
+int direction;           // 0=haut,1=droite,2=bas,3=gauche
+int food = 4;            // longueur initiale du corps
+int applesEaten = 0;     // compteur de pommes mangées
 int score = 0;
 bool running;
-int speedMode = 1;  // 1 = lent, 2 = rapide
+int speedMode = 1;       // 1 = lent, 2 = rapide
 
 // --- Programme principal ---
 int main() {
     srand(time(0));
 
-    cout << "=== JEU DU SERPENT ===" << endl;
-    cout << "1 - Nouvelle partie" << endl;
-    cout << "2 - Reprendre la partie sauvegardee" << endl;
-    cout << "Votre choix : ";
-    int choix;
-    cin >> choix;
+    // Initialisation ncurses
+    initscr();
+    cbreak();
+    noecho();
+    nodelay(stdscr, TRUE); // getch non bloquant
+    keypad(stdscr, TRUE);
 
-    if (choix == 2) {
+    // Choix nouvelle partie ou reprendre
+    mvprintw(0,0,"=== JEU DU SERPENT ===");
+    mvprintw(1,0,"1 - Nouvelle partie");
+    mvprintw(2,0,"2 - Reprendre la partie sauvegardee");
+    mvprintw(3,0,"Votre choix : ");
+    refresh();
+
+    int choix = getch();
+    while (choix != '1' && choix != '2') choix = getch();
+
+    if (choix == '2') {
         if (!loadGame()) {
-            cout << "Aucune sauvegarde trouvee. Nouvelle partie demarree." << endl;
-            Sleep(2000);
+            mvprintw(5,0,"Aucune sauvegarde trouvee. Nouvelle partie demarree.");
+            refresh();
+            sleep(2);
             initMap();
         }
     } else {
         initMap();
     }
 
-    cout << "\nChoisissez la vitesse : (1) Lent  (2) Rapide : ";
-    cin >> speedMode;
+    // Choix de la vitesse
+    clear();
+    mvprintw(0,0,"Choisissez la vitesse : (1) Lent  (2) Rapide : ");
+    refresh();
+    int speedChoice = getch();
+    while (speedChoice != '1' && speedChoice != '2') speedChoice = getch();
+    speedMode = (speedChoice == '1') ? 1 : 2;
 
     run();
+
+    // Fin ncurses
+    endwin();
     return 0;
 }
 
 // --- Boucle principale du jeu ---
 void run() {
     running = true;
-    int delay = (speedMode == 1) ? 400 : 150;
+    int delay = (speedMode == 1) ? 400 : 150; // millisecondes
 
     while (running) {
-        if (kbhit()) {
-            char c = getch();
-            if (c == 'p' || c == 'P') saveGame();
-            else if (c == 'r' || c == 'R') loadGame();
-            else if (c == 'q' || c == 'Q') running = false;
-            else changeDirection(c);
+        int ch = getch();
+        if (ch != ERR) {
+            if (ch == 'p') saveGame();
+            else if (ch == 'r') loadGame();
+            else changeDirection(ch);
         }
 
         update();
-        system("cls");
+        clear();
         printMap();
-        cout << "\nScore : " << score << endl;
-        cout << "Commandes : W/A/S/D pour bouger | P = Sauvegarder | R = Charger | Q = Quitter" << endl;
+        mvprintw(mapheight+1, 0, "Score : %d", score);
+        mvprintw(mapheight+2, 0, "Commandes : W/A/S/D pour bouger | P = Sauvegarder | R = Charger | Q = Quitter");
+        refresh();
 
-        Sleep(delay);
+        if (ch == 'q' || ch == 'Q') running = false;
+
+        usleep(delay * 1000);
     }
 
-    cout << "\n=== GAME OVER ===" << endl;
-    cout << "Score final : " << score << endl;
-    system("pause");
+    mvprintw(mapheight+4, 0, "=== GAME OVER === Score final : %d", score);
+    mvprintw(mapheight+5, 0, "Appuyez sur une touche pour quitter...");
+    nodelay(stdscr, FALSE);
+    getch();
 }
 
 // --- Changement de direction ---
-void changeDirection(char key) {
+void changeDirection(int key) {
     switch (key) {
-        case 'w': case 'W': if (direction != 2) direction = 0; break; // haut
-        case 'd': case 'D': if (direction != 3) direction = 1; break; // droite
-        case 's': case 'S': if (direction != 0) direction = 2; break; // bas
-        case 'a': case 'A': if (direction != 1) direction = 3; break; // gauche
+        case 'a': case 'A': if (direction != 2) direction = 0; break;
+        case 'z': case 'Z': if (direction != 3) direction = 1; break;
+        case 'e': case 'E': if (direction != 0) direction = 2; break;
+        case 'r': case 'R': if (direction != 1) direction = 3; break;
     }
 }
+
 
 // --- Déplacement du serpent ---
 void moveSnake(int dx, int dy) {
     int newx = headxpos + dx;
     int newy = headypos + dy;
 
-    int target = map[newx + newy * mapwidth];
-
     // Collision avec mur ou corps
+    int target = map[newx + newy * mapwidth];
     if (target != 0 && target != -2) {
         running = false;
         return;
@@ -123,9 +140,9 @@ void moveSnake(int dx, int dy) {
         map[newx + newy * mapwidth] = 0;
         score += 5;
         if (applesEaten == 3) {
-            food++;
+            food++; // grandit après 3 pommes
             applesEaten = 0;
-            generateFood();
+            generateFood(); // nouvelles pommes
         }
     }
 
@@ -143,30 +160,29 @@ void update() {
         case 3: moveSnake(0,-1); break;
     }
 
-    // Décrémenter corps
-    for (int i = 0; i < size; i++) {
-        if (map[i] > 0) map[i]--;
+    // Décrémenter corps du serpent
+    for (int i=0; i<size; i++) {
+        if (map[i]>0) map[i]--;
     }
 }
 
 // --- Initialisation de la carte ---
 void initMap() {
-    for (int i = 0; i < size; i++) map[i] = 0;
+    for (int i=0;i<size;i++) map[i]=0;
 
-    headxpos = mapwidth / 2;
-    headypos = mapheight / 2;
+    headxpos = mapwidth/2;
+    headypos = mapheight/2;
     direction = 1;
 
     // murs haut et bas
-    for (int x = 0; x < mapwidth; x++) {
+    for (int x=0;x<mapwidth;x++) {
         map[x] = -1;
         map[x + (mapheight-1)*mapwidth] = -1;
     }
-
     // murs gauche et droite
-    for (int y = 0; y < mapheight; y++) {
+    for (int y=0;y<mapheight;y++) {
         map[0 + y*mapwidth] = -1;
-        map[(mapwidth-1) + y*mapwidth] = -1;
+        map[(mapwidth-1)+y*mapwidth] = -1;
     }
 
     generateFood();
@@ -175,11 +191,11 @@ void initMap() {
 // --- Génération de 3 pommes ---
 void generateFood() {
     int count = 0;
-    while (count < 3) {
+    while (count<3) {
         int x = rand() % (mapwidth-2) + 1;
         int y = rand() % (mapheight-2) + 1;
-        if (map[x + y*mapwidth] == 0) {
-            map[x + y*mapwidth] = -2;
+        if (map[x + y*mapwidth]==0) {
+            map[x + y*mapwidth]=-2;
             count++;
         }
     }
@@ -187,17 +203,16 @@ void generateFood() {
 
 // --- Affichage de la carte ---
 void printMap() {
-    for (int y = 0; y < mapheight; y++) {
-        for (int x = 0; x < mapwidth; x++) {
-            cout << getMapValue(map[x + y*mapwidth]);
+    for (int y=0;y<mapheight;y++) {
+        for (int x=0;x<mapwidth;x++) {
+            mvaddch(y,x,getMapValue(map[x + y*mapwidth]));
         }
-        cout << endl;
     }
 }
 
 // --- Caractères d'affichage ---
 char getMapValue(int value) {
-    if (value > 0) return 'o'; // serpent
+    if (value>0) return 'o'; // serpent
     switch(value){
         case -1: return 'X'; // mur
         case -2: return 'O'; // pomme
@@ -205,24 +220,25 @@ char getMapValue(int value) {
     }
 }
 
-// --- Sauvegarde de la partie ---
+// --- Sauvegarde ---
 void saveGame() {
     ofstream file("snake_save.txt");
-    if (!file) return;
+    if(!file) return;
     file << headxpos << " " << headypos << " " << direction << " " << food << " "
          << applesEaten << " " << score << " " << speedMode << endl;
-    for (int i = 0; i < size; i++) file << map[i] << " ";
+    for(int i=0;i<size;i++) file << map[i] << " ";
     file.close();
-    cout << "\nPartie sauvegardee !" << endl;
-    Sleep(1000);
+    mvprintw(mapheight+6,0,"Partie sauvegardee !");
+    refresh();
+    usleep(1000000); // 1 seconde
 }
 
-// --- Chargement de la partie ---
+// --- Chargement ---
 bool loadGame() {
     ifstream file("snake_save.txt");
-    if (!file) return false;
+    if(!file) return false;
     file >> headxpos >> headypos >> direction >> food >> applesEaten >> score >> speedMode;
-    for (int i = 0; i < size; i++) file >> map[i];
+    for(int i=0;i<size;i++) file >> map[i];
     file.close();
     return true;
 }
