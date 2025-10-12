@@ -174,16 +174,17 @@ void initMap() {
 
 // --- Génération de 3 pommes ---
 void generateFood() {
-    int count = 0;
-    while (count < 3) {
-        int x = rand() % (mapwidth-2) + 1;
+    int count = 0; // on a un compteur à 0
+    while (count<3) { //Tant que on en a pas 3 , faire tourner la boucle
+        int x = rand() % (mapwidth-2) + 1; // rand = aléatoire ça permet d'ajouter une pomme
         int y = rand() % (mapheight-2) + 1;
-        if (map[x + y*mapwidth] == 0) {
-            map[x + y*mapwidth] = -2;
+        if (map[x + y*mapwidth]==0)   {  // on donne -2 à pomme 
+            map[x + y*mapwidth]=-2; 
             count++;
         }
     }
 }
+
 
 // --- Affichage de la carte ---
 void printMap() {
